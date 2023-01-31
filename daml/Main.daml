@@ -1,0 +1,55 @@
+module Main where
+
+import Daml.Script
+-- import DA.Time (time)
+
+
+type AssetId = ContractId Asset
+
+template Asset
+  with
+    manufacturer : Party
+    retailer : Party 
+    product : Text
+    productId : Text 
+    customer : Party
+    warrantyPeriod : Int
+  where
+    signatory manufacturer
+
+    controller manufacturer can 
+      ReleaseItemTo : AssetId
+        with
+          dealer : Party
+        do 
+          create this with
+            retailer = dealer
+
+    controller retailer can 
+      SellItemTo : AssetId
+        with
+          rightFulOwner : Party
+        do 
+          create this with
+            customer = rightFulOwner 
+
+setup : Script (AssetId)
+setup = script do   
+  adani <- allocateParty "Adani"  
+  airtel <- allocateParty "Airtel"
+  hk <- allocateParty "HK"
+
+  newProduct <- submit adani do
+    createCmd Asset with
+      manufacturer = adani
+      retailer = adani
+      customer = adani
+      product = "Iphone"
+      productId = "69"
+      warrantyPeriod = 2
+
+  retailerOwnProduct <- submit adani do
+    exerciseCmd newProduct ReleaseItemTo with dealer = airtel
+
+  submit airtel do
+    exerciseCmd retailerOwnProduct SellItemTo with rightFulOwner = hk
