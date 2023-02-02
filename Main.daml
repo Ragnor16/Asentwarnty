@@ -1,0 +1,59 @@
+module Main where
+
+import Daml.Script
+
+
+type AssetId = ContractId Asset
+
+template Asset
+  with
+    manufacturer : Party
+    retailer : Party 
+    product : Text
+    productId : Text 
+    customer : Party
+    warrantyPeriod : Int
+  where
+    signatory manufacturer
+    observer retailer, customer
+
+    choice ReleaseItemTo : AssetId with dealer : Party 
+      controller manufacturer
+      do 
+        create this with
+          retailer = dealer
+          
+
+    choice SellItemTo : AssetId with rightFulOwner : Party 
+      controller retailer
+      do 
+        create this with
+          customer = rightFulOwner
+          
+
+setup : Script AssetId
+setup = script do   
+  adani <- allocatePartyWithHint "Adani" (PartyIdHint "Adani")
+  airtel <- allocatePartyWithHint "Airtel" (PartyIdHint "Airtel")
+  hk <- allocatePartyWithHint "HK" (PartyIdHint "HK")
+  adaniId <- validateUserId "adani"
+  airtelId <- validateUserId "airtel"
+  hkId <- validateUserId "hk"
+  createUser (User adaniId (Some adani)) [CanActAs adani]
+  createUser (User airtelId (Some airtel)) [CanActAs airtel]
+  createUser (User hkId (Some hk)) [CanActAs hk]
+
+  newProduct <- submit adani do
+    createCmd Asset with
+      manufacturer = adani
+      retailer = adani
+      customer = adani
+      product = "Iphone"
+      productId = "69"
+      warrantyPeriod = 5
+
+  retailerOwnProduct <- submit adani do
+    exerciseCmd newProduct ReleaseItemTo with dealer = airtel
+
+  submit airtel do
+    exerciseCmd retailerOwnProduct SellItemTo with rightFulOwner = hk
